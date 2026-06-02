@@ -1,0 +1,1778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LongevityClaw</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
+<style>
+  :root {
+    --deep: #005461;
+    --dark: #0C7779;
+    --mid: #249E94;
+    --bright: #3BC1A8;
+    --bg: #0a1a1e;
+    --bg2: #0d2228;
+    --bg3: #112a31;
+    --text: #c8dfe4;
+    --text-dim: #6a9ba5;
+    --pro-aging: #e57373;
+    --anti-aging: #81c784;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Layout */
+  .app {
+    display: flex;
+    height: 100vh;
+  }
+
+  /* Pathway panel (left) */
+  .pathway-panel {
+    width: 340px;
+    background: var(--bg2);
+    border-right: 1px solid var(--deep);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  .pathway-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--deep);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .pathway-header h2 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--bright);
+    flex: 1;
+  }
+
+  .pathway-header .badge {
+    background: var(--deep);
+    color: var(--mid);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+  }
+
+  .pathway-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--deep);
+  }
+
+  .pathway-tab {
+    flex: 1;
+    padding: 8px 12px;
+    font-size: 11px;
+    text-align: center;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    color: var(--text-dim);
+    transition: all 0.2s;
+  }
+
+  .pathway-tab:hover {
+    color: var(--text);
+    background: rgba(59, 193, 168, 0.05);
+  }
+
+  .pathway-tab.active {
+    color: var(--bright);
+    border-bottom-color: var(--bright);
+  }
+
+  .pathway-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+  }
+
+  .pathway-loading {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+
+  .pathway-item {
+    background: var(--bg3);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: 1px solid transparent;
+  }
+
+  .pathway-item:hover {
+    border-color: var(--deep);
+    background: rgba(17, 42, 49, 0.8);
+  }
+
+  .pathway-item.selected {
+    border-color: var(--bright);
+    background: rgba(59, 193, 168, 0.1);
+  }
+
+  .pathway-item .name {
+    font-size: 12px;
+    color: var(--text);
+    font-weight: 500;
+    margin-bottom: 4px;
+    text-transform: capitalize;
+  }
+
+  .pathway-item .name span {
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+
+  .pathway-item .stats {
+    display: flex;
+    gap: 10px;
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+
+  .pathway-item .score-bar {
+    height: 4px;
+    background: var(--bg);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+
+  .pathway-item .score-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--mid), var(--bright));
+    border-radius: 2px;
+    transition: width 0.3s;
+  }
+
+  .pathway-item .hallmarks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+  }
+
+  .pathway-item .hallmark-tag {
+    background: var(--deep);
+    color: var(--mid);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 9px;
+  }
+
+  /* Pathway detail modal */
+  .pathway-detail {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(10, 26, 30, 0.95);
+    z-index: 100;
+    padding: 40px;
+    overflow-y: auto;
+  }
+
+  .pathway-detail.show {
+    display: block;
+  }
+
+  .pathway-detail-inner {
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  .pathway-detail .close-btn {
+    position: absolute;
+    top: 20px;
+    right: 30px;
+    font-size: 24px;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 5px 10px;
+  }
+
+  .pathway-detail .close-btn:hover {
+    color: var(--bright);
+  }
+
+  .pathway-detail h2 {
+    color: var(--bright);
+    font-size: 22px;
+    margin-bottom: 8px;
+    text-transform: capitalize;
+  }
+
+  .pathway-detail .subtitle {
+    color: var(--text-dim);
+    font-size: 13px;
+    margin-bottom: 24px;
+  }
+
+  .chat-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  .chat-btn {
+    background: linear-gradient(135deg, #3BC1A8, #249E94);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .chat-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59, 193, 168, 0.3);
+  }
+
+  .chat-btn:active {
+    transform: translateY(0);
+  }
+
+  .chat-btn.llm-btn {
+    background: linear-gradient(135deg, #9B59B6, #8E44AD);
+  }
+
+  .chat-btn.llm-btn:hover {
+    box-shadow: 0 4px 12px rgba(155, 89, 182, 0.4);
+  }
+
+  .synergy-chat-btn {
+    margin-top: 8px;
+    width: 100%;
+  }
+
+  .detail-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .detail-stat {
+    background: var(--bg3);
+    padding: 16px;
+    border-radius: 8px;
+    text-align: center;
+  }
+
+  .detail-stat .value {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--bright);
+  }
+
+  .detail-stat .label {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  .detail-section {
+    background: var(--bg3);
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+  }
+
+  .detail-section h3 {
+    font-size: 13px;
+    color: var(--mid);
+    margin-bottom: 12px;
+  }
+
+  .gene-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .gene-tag {
+    background: var(--bg);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+  }
+
+  .gene-tag.pro-aging {
+    border-left: 3px solid var(--pro-aging);
+  }
+
+  .gene-tag.anti-aging {
+    border-left: 3px solid var(--anti-aging);
+  }
+
+  .gene-tag .score {
+    color: var(--text-dim);
+    margin-left: 4px;
+  }
+
+  .itp-badge {
+    background: linear-gradient(90deg, #d4a855, #c49340);
+    color: #0a1a1e;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .evidence-badge {
+    font-size: 9px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .evidence-badge.clinical { background: #3BC1A8; color: #0a1a1e; }
+  .evidence-badge.preclinical { background: #249E94; color: #fff; }
+  .evidence-badge.meta-analysis { background: #d4a855; color: #0a1a1e; }
+
+  .target-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--deep);
+    gap: 12px;
+  }
+
+  .target-item:last-child {
+    border-bottom: none;
+  }
+
+  .target-item .gene-name {
+    font-weight: 600;
+    min-width: 80px;
+  }
+
+  .target-item .direction {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 3px;
+  }
+
+  .target-item .direction.pro-aging {
+    background: rgba(229, 115, 115, 0.2);
+    color: var(--pro-aging);
+  }
+
+  .target-item .direction.anti-aging {
+    background: rgba(129, 199, 132, 0.2);
+    color: var(--anti-aging);
+  }
+
+  .target-item .intervention {
+    flex: 1;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .target-item .confidence {
+    font-size: 11px;
+    color: var(--mid);
+  }
+
+  /* Terminal panel (center) */
+  .terminal-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .terminal-header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--deep);
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .terminal-header .logo {
+    color: var(--bright);
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.5px;
+  }
+
+  .terminal-header .badge {
+    background: var(--deep);
+    color: var(--mid);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+  }
+
+  .terminal-header .status {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--mid);
+    animation: pulse 2s infinite;
+  }
+
+  .status-dot.disconnected {
+    background: #c44;
+    animation: none;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  #terminal-container {
+    flex: 1;
+    padding: 4px;
+    background: var(--bg);
+    overflow: hidden;
+  }
+
+  /* File panel (right) */
+  .file-panel {
+    width: 280px;
+    background: var(--bg2);
+    border-left: 1px solid var(--deep);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  .file-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--deep);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--mid);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .drop-zone {
+    margin: 12px;
+    padding: 24px 16px;
+    border: 2px dashed var(--deep);
+    border-radius: 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--bright);
+    background: rgba(59, 193, 168, 0.05);
+  }
+
+  .drop-zone .icon {
+    font-size: 28px;
+    margin-bottom: 8px;
+    opacity: 0.6;
+  }
+
+  .drop-zone .label {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  .drop-zone .label strong {
+    color: var(--bright);
+  }
+
+  .file-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 12px;
+  }
+
+  .file-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    margin-bottom: 4px;
+    background: var(--bg3);
+    border-radius: 6px;
+    font-size: 12px;
+    gap: 8px;
+  }
+
+  .file-item .file-icon {
+    color: var(--mid);
+    flex-shrink: 0;
+  }
+
+  .file-item .file-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .file-item .file-name {
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .file-item .file-size {
+    color: var(--text-dim);
+    font-size: 10px;
+  }
+
+  .file-item .file-path {
+    color: var(--dark);
+    font-size: 10px;
+    font-style: italic;
+    cursor: pointer;
+  }
+
+  .file-item .file-path:hover {
+    color: var(--bright);
+  }
+
+  .file-item .file-delete {
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .file-item:hover .file-delete {
+    opacity: 1;
+  }
+
+  .file-item .file-delete:hover {
+    color: #e55;
+    background: rgba(238, 85, 85, 0.1);
+  }
+
+  .file-hint {
+    padding: 12px 16px;
+    border-top: 1px solid var(--deep);
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    flex-shrink: 0;
+  }
+
+  .file-hint code {
+    background: var(--bg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--mid);
+  }
+
+  /* Toast notifications */
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg3);
+    border: 1px solid var(--deep);
+    color: var(--text);
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-size: 13px;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+
+  .toast.show {
+    opacity: 1;
+  }
+
+  /* Mobile: hide side panels */
+  @media (max-width: 1024px) {
+    .pathway-panel { display: none; }
+  }
+  @media (max-width: 768px) {
+    .file-panel { display: none; }
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--deep); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--dark); }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Pathway Explorer -->
+  <div class="pathway-panel">
+    <div class="pathway-header">
+      <h2>Pathway Explorer</h2>
+      <span class="badge">50 hallmarks</span>
+    </div>
+    <div class="pathway-tabs">
+      <div class="pathway-tab active" data-tab="ranked">Ranked</div>
+      <div class="pathway-tab" data-tab="synergies">Synergies</div>
+      <div class="pathway-tab" data-tab="drugs">Drugs</div>
+      <div class="pathway-tab" data-tab="control">Control</div>
+    </div>
+    <div class="pathway-content" id="pathwayContent">
+      <div class="pathway-loading">Loading pathways...</div>
+    </div>
+  </div>
+
+  <!-- Terminal -->
+  <div class="terminal-panel">
+    <div class="terminal-header">
+      <span class="logo">LongevityClaw</span>
+      <span class="badge">233 clocks</span>
+      <span class="badge">6 modalities</span>
+      <div class="status">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">connecting...</span>
+      </div>
+    </div>
+    <div id="terminal-container"></div>
+  </div>
+
+  <!-- File panel -->
+  <div class="file-panel">
+    <div class="file-header">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M1 3.5A1.5 1.5 0 012.5 2h3.879a1.5 1.5 0 011.06.44l1.122 1.12A1.5 1.5 0 009.62 4H13.5A1.5 1.5 0 0115 5.5v7a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 12.5v-9z"/>
+      </svg>
+      Your Files
+    </div>
+
+    <div class="drop-zone" id="dropZone">
+      <div class="icon">&#8679;</div>
+      <div class="label">
+        <strong>Drop files here</strong><br>
+        or click to browse<br>
+        CSV, TSV
+      </div>
+      <input type="file" id="fileInput" accept=".csv,.tsv,.txt" multiple style="display:none">
+    </div>
+
+    <div class="file-list" id="fileList"></div>
+
+    <div class="file-hint">
+      Reference uploaded files in chat:<br>
+      <code>analyze @data/uploads/my_file.csv</code>
+    </div>
+  </div>
+</div>
+
+<!-- Pathway Detail Modal -->
+<div class="pathway-detail" id="pathwayDetail">
+  <span class="close-btn" id="closeDetail">&times;</span>
+  <div class="pathway-detail-inner" id="pathwayDetailInner"></div>
+</div>
+
+<!-- L-LLM Result Modal -->
+<div class="pathway-detail" id="llmModal">
+  <span class="close-btn" id="closeLlmModal">&times;</span>
+  <div class="pathway-detail-inner" id="llmModalInner">
+    <div class="llm-loading">
+      <div class="llm-spinner"></div>
+      <div>Querying L-LLM...</div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .llm-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 40px;
+    color: var(--mid);
+  }
+  .llm-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--deep);
+    border-top-color: var(--bright);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  .llm-result {
+    padding: 16px;
+  }
+  .llm-result h2 {
+    color: var(--bright);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .llm-result h2 .llm-badge {
+    background: #9B59B6;
+    color: white;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+  .llm-result .llm-section {
+    margin-bottom: 20px;
+  }
+  .llm-result .llm-section h3 {
+    color: var(--mid);
+    font-size: 12px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .llm-result .llm-content {
+    background: var(--bg);
+    padding: 12px;
+    border-radius: 6px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
+  .llm-result .llm-score {
+    font-size: 48px;
+    font-weight: 700;
+    color: var(--bright);
+    text-align: center;
+    padding: 20px;
+  }
+  .llm-result .llm-confidence {
+    text-align: center;
+    color: var(--mid);
+    font-size: 14px;
+  }
+  .llm-error {
+    color: #e55;
+    padding: 20px;
+    text-align: center;
+  }
+  .send-to-chat-btn {
+    display: block;
+    width: 100%;
+    margin-top: 20px;
+    padding: 12px 24px;
+    background: linear-gradient(135deg, var(--anti-aging), #4a9);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .send-to-chat-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  }
+</style>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0.11.0/lib/addon-web-links.min.js"></script>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+(function() {
+  // ── Terminal setup ──────────────────────────────────────────────
+  const term = new Terminal({
+    cursorBlink: true,
+    cursorStyle: 'bar',
+    fontSize: 14,
+    fontFamily: "'SF Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace",
+    theme: {
+      background: '#0a1a1e',
+      foreground: '#c8dfe4',
+      cursor: '#3BC1A8',
+      cursorAccent: '#0a1a1e',
+      selectionBackground: 'rgba(59, 193, 168, 0.3)',
+      black: '#0a1a1e',
+      red: '#e55',
+      green: '#3BC1A8',
+      yellow: '#d4a855',
+      blue: '#249E94',
+      magenta: '#b48ead',
+      cyan: '#0C7779',
+      white: '#c8dfe4',
+      brightBlack: '#4a6a70',
+      brightRed: '#f77',
+      brightGreen: '#5ce5c8',
+      brightYellow: '#f0c674',
+      brightBlue: '#3BC1A8',
+      brightMagenta: '#c9a0dc',
+      brightCyan: '#249E94',
+      brightWhite: '#e8f4f8',
+    },
+    allowProposedApi: true,
+  });
+
+  const fitAddon = new FitAddon.FitAddon();
+  const webLinksAddon = new WebLinksAddon.WebLinksAddon();
+  term.loadAddon(fitAddon);
+  term.loadAddon(webLinksAddon);
+
+  const container = document.getElementById('terminal-container');
+  term.open(container);
+  fitAddon.fit();
+
+  // ── Socket.IO connection (with HTTP long-polling fallback) ──────
+  const statusDot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  let socket = null;
+  let connected = false;
+  let reconnectTimer = null;
+
+  function setStatus(isConnected) {
+    connected = isConnected;
+    if (isConnected) {
+      statusDot.className = 'status-dot';
+      statusText.textContent = 'connected';
+    } else {
+      statusDot.className = 'status-dot disconnected';
+      statusText.textContent = 'disconnected';
+    }
+  }
+
+  async function connect() {
+    console.log('[SIO DEBUG] Host:', location.host, 'Protocol:', location.protocol);
+    console.log('[SIO DEBUG] Browser time:', new Date().toISOString());
+
+    // Fetch token from API
+    let token = '';
+    try {
+      console.log('[SIO DEBUG] Fetching /api/token...');
+      const resp = await fetch('/api/token', {credentials: 'include'});
+      console.log('[SIO DEBUG] Token response:', resp.status);
+      if (resp.ok) {
+        const data = await resp.json();
+        token = data.token || '';
+      }
+    } catch (e) {
+      console.warn('Failed to get auth token:', e);
+    }
+
+    // Detect if we're likely behind Cloudflare tunnel (not localhost)
+    const isTunnel = !location.hostname.includes('localhost') && !location.hostname.includes('127.0.0.1');
+    console.log('[SIO DEBUG] Is tunnel:', isTunnel);
+
+    // Connect with Socket.IO - start with polling for tunnels (more reliable), websocket for localhost
+    console.log('[SIO DEBUG] Connecting via Socket.IO...');
+    socket = io({
+      // For Cloudflare tunnels: start with polling (reliable), then try to upgrade
+      // For localhost: try WebSocket first
+      transports: isTunnel ? ['polling', 'websocket'] : ['websocket', 'polling'],
+      upgrade: true,  // Allow upgrading from polling to websocket
+      rememberUpgrade: true,
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+      timeout: 20000,
+    });
+
+    let hasConnected = false;
+    let errorCount = 0;
+
+    socket.on('connect', () => {
+      console.log('[SIO DEBUG] Connected! Transport:', socket.io.engine.transport.name);
+      hasConnected = true;
+      errorCount = 0;
+      // Send auth with token
+      socket.emit('auth', {token: token});
+    });
+
+    socket.io.engine.on('upgrade', (transport) => {
+      console.log('[SIO DEBUG] Upgraded transport to:', transport.name);
+    });
+
+    socket.io.engine.on('upgradeError', (err) => {
+      // Silently ignore upgrade errors - polling works fine
+      console.log('[SIO DEBUG] WebSocket upgrade failed (using polling):', err.message);
+    });
+
+    socket.on('auth_ok', () => {
+      console.log('[SIO DEBUG] Auth OK, terminal ready');
+      setStatus(true);
+      sendResize(term.rows, term.cols);
+    });
+
+    socket.on('auth_error', (data) => {
+      console.error('[SIO DEBUG] Auth failed:', data);
+      term.write('\r\n\x1b[31m[Authentication failed]\x1b[0m\r\n');
+    });
+
+    socket.on('output', (data) => {
+      // Handle different data formats from Python Socket.IO
+      try {
+        if (data instanceof ArrayBuffer) {
+          // Raw ArrayBuffer
+          term.write(new Uint8Array(data));
+        } else if (data instanceof Uint8Array) {
+          // Already Uint8Array
+          term.write(data);
+        } else if (typeof data === 'object' && data !== null) {
+          if (data.type === 'Buffer' && Array.isArray(data.data)) {
+            // Node.js Buffer serialized as JSON
+            term.write(new Uint8Array(data.data));
+          } else if (ArrayBuffer.isView(data)) {
+            // TypedArray view
+            term.write(new Uint8Array(data.buffer));
+          }
+        } else if (typeof data === 'string') {
+          // Plain string
+          term.write(data);
+        }
+      } catch (e) {
+        console.error('[SIO DEBUG] Error writing output:', e, data);
+      }
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log('[SIO DEBUG] Disconnected:', reason);
+      setStatus(false);
+      if (reason === 'io server disconnect') {
+        term.write('\r\n\x1b[33m[Server disconnected - reconnecting...]\x1b[0m\r\n');
+      } else if (reason === 'transport close' || reason === 'transport error') {
+        term.write('\r\n\x1b[33m[Connection lost - reconnecting...]\x1b[0m\r\n');
+      }
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('[SIO DEBUG] Connection error:', error.message);
+      errorCount++;
+      // Only show error message if we've never connected and it's not just a WebSocket upgrade failure
+      // Socket.IO will automatically fall back to polling
+      if (!hasConnected && errorCount > 2) {
+        setStatus(false);
+        term.write(`\r\n\x1b[31m[Connection error: ${error.message}]\x1b[0m\r\n`);
+      }
+    });
+
+    socket.io.on('reconnect', (attempt) => {
+      console.log('[SIO DEBUG] Reconnected after', attempt, 'attempts');
+      term.write('\r\n\x1b[32m[Reconnected]\x1b[0m\r\n');
+    });
+
+    socket.io.on('reconnect_attempt', (attempt) => {
+      console.log('[SIO DEBUG] Reconnect attempt', attempt);
+    });
+  }
+
+  function sendResize(rows, cols) {
+    if (socket && connected) {
+      socket.emit('resize', {rows: rows, cols: cols});
+    }
+  }
+
+  term.onData((data) => {
+    if (socket && connected) {
+      socket.emit('input', data);
+    }
+  });
+
+  window.addEventListener('resize', () => {
+    fitAddon.fit();
+    sendResize(term.rows, term.cols);
+  });
+
+  const resizeObserver = new ResizeObserver(() => {
+    fitAddon.fit();
+    sendResize(term.rows, term.cols);
+  });
+  resizeObserver.observe(container);
+
+  connect();
+
+  // ── Send to Chat function ───────────────────────────────────────
+  // Exposed to window for inline onclick handlers
+  window.sendToChat = function(text) {
+    if (socket && connected) {
+      // Send text followed by Enter key
+      socket.emit('input', text + '\r');
+      showToast('Query sent to chat');
+      // Close any open modal/detail panel
+      document.getElementById('pathwayDetail')?.classList.remove('show');
+      // Scroll terminal into view and focus
+      document.querySelector('.terminal-panel')?.scrollIntoView({behavior: 'smooth', block: 'center'});
+      setTimeout(() => term.focus(), 300);
+    } else {
+      showToast('Chat disconnected - reconnecting...');
+      connect();
+    }
+  };
+
+  // ── Pathway Explorer ────────────────────────────────────────────
+  const pathwayContent = document.getElementById('pathwayContent');
+  const pathwayDetail = document.getElementById('pathwayDetail');
+  const pathwayDetailInner = document.getElementById('pathwayDetailInner');
+  const closeDetail = document.getElementById('closeDetail');
+  let pathwayData = [];
+  let selectedPathways = new Set();
+
+  async function loadPathways() {
+    try {
+      const resp = await fetch('/api/pathways?top_n=50');
+      const data = await resp.json();
+      pathwayData = data.pathways;
+      renderPathways();
+    } catch (e) {
+      pathwayContent.innerHTML = `<div class="pathway-loading">Failed to load pathways</div>`;
+    }
+  }
+
+  function renderPathways() {
+    pathwayContent.innerHTML = pathwayData.map(p => `
+      <div class="pathway-item ${selectedPathways.has(p.id) ? 'selected' : ''}" data-id="${p.id}">
+        <div class="name">${p.name.replace(/_/g, ' ')} <span>(${p.n_genes} genes)</span></div>
+        <div class="stats">
+          <span>Coverage: ${(p.coverage * 100).toFixed(1)}%</span>
+          <span>Clocks: ${p.clock_count}</span>
+          <span>Score: ${(p.aging_score * 100).toFixed(0)}%</span>
+        </div>
+        <div class="score-bar">
+          <div class="score-fill" style="width: ${p.aging_score * 100}%"></div>
+        </div>
+        ${p.lopez_otin.length > 0 ? `
+          <div class="hallmarks">
+            ${p.lopez_otin.map(h => `<span class="hallmark-tag">${h}</span>`).join('')}
+          </div>
+        ` : ''}
+      </div>
+    `).join('');
+
+    pathwayContent.querySelectorAll('.pathway-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        if (e.shiftKey) {
+          // Multi-select for synergies
+          const id = item.dataset.id;
+          if (selectedPathways.has(id)) {
+            selectedPathways.delete(id);
+          } else {
+            selectedPathways.add(id);
+          }
+          renderPathways();
+        } else {
+          // Show detail
+          showPathwayDetail(item.dataset.id);
+        }
+      });
+    });
+  }
+
+  async function showPathwayDetail(pathwayId) {
+    try {
+      const resp = await fetch(`/api/pathways/${pathwayId}`);
+      const data = await resp.json();
+      const p = data.pathway;
+      const targets = data.targets || [];
+
+      // Store pathway data for L-LLM button
+      window._currentPathwayData = {
+        name: p.name,
+        genes: p.top_genes.map(g => g.gene)
+      };
+
+      pathwayDetailInner.innerHTML = `
+        <h2>${p.name.replace(/_/g, ' ')}</h2>
+        <div class="subtitle">${p.n_genes} genes in pathway, ${p.n_genes_in_clocks} found in aging clocks</div>
+
+        <div class="chat-actions">
+          <button class="chat-btn" onclick="sendToChat('score pathway ${pathwayId}')">Score Pathway</button>
+          <button class="chat-btn llm-btn" onclick="scorePathwayLLM(window._currentPathwayData.name, window._currentPathwayData.genes)">Score (L-LLM)</button>
+          <button class="chat-btn" onclick="sendToChat('what genes in ${p.name} pathway are most important for aging?')">Explore Genes</button>
+          <button class="chat-btn" onclick="sendToChat('find intervention targets in ${p.name}')">Find Targets</button>
+        </div>
+
+        <div class="detail-grid">
+          <div class="detail-stat">
+            <div class="value">${(p.coverage * 100).toFixed(1)}%</div>
+            <div class="label">Gene Coverage</div>
+          </div>
+          <div class="detail-stat">
+            <div class="value">${p.clock_count}</div>
+            <div class="label">Clocks</div>
+          </div>
+          <div class="detail-stat">
+            <div class="value">${(p.consistency * 100).toFixed(0)}%</div>
+            <div class="label">Consistency</div>
+          </div>
+          <div class="detail-stat">
+            <div class="value">${(p.aging_score * 100).toFixed(0)}%</div>
+            <div class="label">Aging Score</div>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <h3>Top Contributing Genes</h3>
+          <div class="gene-list">
+            ${p.top_genes.map(g => `
+              <span class="gene-tag">${g.gene} <span class="score">${g.score.toFixed(3)}</span></span>
+            `).join('')}
+          </div>
+        </div>
+
+        ${p.lopez_otin.length > 0 ? `
+          <div class="detail-section">
+            <h3>Lopez-Otin Hallmarks</h3>
+            <div class="gene-list">
+              ${p.lopez_otin.map(h => `<span class="gene-tag">${h}</span>`).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        ${targets.length > 0 ? `
+          <div class="detail-section">
+            <h3>Intervention Targets</h3>
+            ${targets.map(t => `
+              <div class="target-item">
+                <span class="gene-name">${t.gene}</span>
+                <span class="direction ${t.direction.replace('-', '-')}">${t.direction}</span>
+                <span class="intervention">${t.intervention}</span>
+                <span class="confidence">${(t.confidence * 100).toFixed(0)}% conf</span>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+      `;
+
+      pathwayDetail.classList.add('show');
+    } catch (e) {
+      showToast('Failed to load pathway details');
+    }
+  }
+
+  closeDetail.addEventListener('click', () => {
+    pathwayDetail.classList.remove('show');
+  });
+
+  pathwayDetail.addEventListener('click', (e) => {
+    if (e.target === pathwayDetail) {
+      pathwayDetail.classList.remove('show');
+    }
+  });
+
+  // Tab switching
+  document.querySelectorAll('.pathway-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.pathway-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      if (tab.dataset.tab === 'synergies') {
+        loadSynergies();
+      } else if (tab.dataset.tab === 'drugs') {
+        loadDrugs();
+      } else if (tab.dataset.tab === 'control') {
+        loadControlLaws();
+      } else {
+        renderPathways();
+      }
+    });
+  });
+
+  async function loadDrugs() {
+    pathwayContent.innerHTML = '<div class="pathway-loading">Loading compounds...</div>';
+    try {
+      const resp = await fetch('/api/drugage?top_n=50', {credentials: 'include'});
+      const data = await resp.json();
+      if (!data.compounds || data.compounds.length === 0) {
+        pathwayContent.innerHTML = '<div class="pathway-loading">No compound data available</div>';
+        return;
+      }
+      pathwayContent.innerHTML = data.compounds.map(c => `
+        <div class="pathway-item drug-item" data-compound="${c.compound}">
+          <div class="name">${c.compound} ${c.itp_validated ? '<span class="itp-badge">ITP</span>' : ''}</div>
+          <div class="stats">
+            <span>Studies: ${c.n_studies}</span>
+            <span>Species: ${c.n_species}</span>
+            <span>Avg: +${c.mean_lifespan_change}%</span>
+          </div>
+          <div class="score-bar">
+            <div class="score-fill" style="width: ${c.longevity_score * 100}%; background: linear-gradient(90deg, #3BC1A8, #249E94);"></div>
+          </div>
+          <div class="hallmarks">
+            ${(c.species || []).slice(0, 4).map(s => `<span class="hallmark-tag">${s}</span>`).join('')}
+          </div>
+        </div>
+      `).join('');
+
+      // Click handlers for drug details
+      pathwayContent.querySelectorAll('.drug-item').forEach(item => {
+        item.addEventListener('click', () => showDrugDetail(item.dataset.compound));
+      });
+    } catch (e) {
+      pathwayContent.innerHTML = `<div class="pathway-loading">Failed to load compounds: ${e.message}</div>`;
+    }
+  }
+
+  async function showDrugDetail(compound) {
+    try {
+      const resp = await fetch(`/api/drugage/${encodeURIComponent(compound)}`, {credentials: 'include'});
+      const data = await resp.json();
+      const c = data.compound;
+      const links = data.pathway_links || {};
+
+      pathwayDetailInner.innerHTML = `
+        <h2>${c.name} ${c.itp_validated ? '<span class="itp-badge">ITP Validated</span>' : ''}</h2>
+        <div class="subtitle">${c.n_studies} studies across ${c.n_species} species</div>
+
+        <div class="chat-actions">
+          <button class="chat-btn" onclick="sendToChat('tell me about ${compound} for longevity')">Learn More</button>
+          <button class="chat-btn llm-btn" onclick="predictLifespanLLM('${compound}', 'mice')">Predict Lifespan (L-LLM)</button>
+          <button class="chat-btn" onclick="sendToChat('what pathways does ${compound} target?')">Target Pathways</button>
+          <button class="chat-btn" onclick="sendToChat('search pubmed ${compound} aging')">PubMed Search</button>
+        </div>
+
+        <div class="detail-grid">
+          <div class="detail-stat">
+            <div class="value">+${c.mean_lifespan_change?.toFixed?.(1) || c.mean_lifespan_change || '?'}%</div>
+            <div class="label">Mean Lifespan</div>
+          </div>
+          <div class="detail-stat">
+            <div class="value">+${c.max_lifespan_change?.toFixed?.(1) || c.max_lifespan_change || '?'}%</div>
+            <div class="label">Max Lifespan</div>
+          </div>
+          <div class="detail-stat">
+            <div class="value">${((c.consistency || 0) * 100).toFixed(0)}%</div>
+            <div class="label">Consistency</div>
+          </div>
+          <div class="detail-stat">
+            <div class="value">${((c.longevity_score || 0) * 100).toFixed(0)}%</div>
+            <div class="label">Score</div>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <h3>Species Tested</h3>
+          <div class="gene-list">
+            ${(c.species || []).map(s => `<span class="gene-tag">${s}</span>`).join('')}
+          </div>
+        </div>
+
+        ${links.known_targets && links.target_genes?.length > 0 ? `
+          <div class="detail-section">
+            <h3>Gene Targets</h3>
+            <div class="gene-list">
+              ${links.target_genes.map(g => `<span class="gene-tag">${g}</span>`).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        ${links.clock_genes?.length > 0 ? `
+          <div class="detail-section">
+            <h3>In Aging Clocks</h3>
+            <div class="gene-list">
+              ${links.clock_genes.map(g => `<span class="gene-tag">${g.gene} <span class="score">${g.clock_count} clocks</span></span>`).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        ${c.studies?.length > 0 ? `
+          <div class="detail-section">
+            <h3>Top Studies</h3>
+            ${c.studies.slice(0, 5).map(s => `
+              <div class="target-item">
+                <span class="gene-name">${s.species}</span>
+                <span class="direction">+${s.avg_change?.toFixed?.(1) || s.avg_change || '?'}%</span>
+                <span class="intervention">${s.strain || 'N/A'}</span>
+                ${s.pubmed ? `<a href="https://pubmed.ncbi.nlm.nih.gov/${s.pubmed}" target="_blank" class="confidence">PMID:${s.pubmed}</a>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+      `;
+
+      pathwayDetail.classList.add('show');
+    } catch (e) {
+      console.error('Compound load error:', e);
+      showToast('Failed to load compound details: ' + e.message);
+    }
+  }
+
+  // Control Laws interventions (from control_laws.py)
+  const CONTROL_INTERVENTIONS = [
+    {id: 'rapamycin', name: 'Rapamycin', desc: 'mTOR inhibitor, extends lifespan in multiple species', confidence: 0.8, level: 'clinical', targets: ['Nutrient Sensing', 'Autophagy', 'Senescence']},
+    {id: 'metformin', name: 'Metformin', desc: 'AMPK activator, diabetes drug with longevity benefits', confidence: 0.75, level: 'clinical', targets: ['Nutrient Sensing', 'Mitochondria', 'Inflammation']},
+    {id: 'senolytics_dq', name: 'Dasatinib + Quercetin', desc: 'Senolytic combination targeting senescent cells', confidence: 0.7, level: 'clinical', targets: ['Senescence', 'Inflammation', 'Stem Cells']},
+    {id: 'nad_precursors', name: 'NAD+ Precursors (NMN/NR)', desc: 'Boost NAD+ levels, support mitochondrial function', confidence: 0.6, level: 'preclinical', targets: ['Mitochondria', 'Epigenetics', 'Stem Cells']},
+    {id: 'spermidine', name: 'Spermidine', desc: 'Natural polyamine that induces autophagy', confidence: 0.65, level: 'clinical', targets: ['Autophagy', 'Proteostasis', 'Mitochondria']},
+    {id: 'caloric_restriction', name: 'Caloric Restriction', desc: '30% calorie reduction, robust lifespan extension', confidence: 0.9, level: 'meta-analysis', targets: ['Nutrient Sensing', 'Autophagy', 'Inflammation']},
+    {id: 'exercise', name: 'Regular Exercise', desc: 'Moderate aerobic + resistance training', confidence: 0.95, level: 'meta-analysis', targets: ['Mitochondria', 'Inflammation', 'Stem Cells']},
+    {id: 'fisetin', name: 'Fisetin', desc: 'Natural senolytic flavonoid', confidence: 0.5, level: 'preclinical', targets: ['Senescence', 'Inflammation']},
+  ];
+
+  function loadControlLaws() {
+    pathwayContent.innerHTML = CONTROL_INTERVENTIONS.map(i => `
+      <div class="pathway-item control-item" data-intervention="${i.id}">
+        <div class="name">${i.name} <span class="evidence-badge ${i.level}">${i.level}</span></div>
+        <div class="stats">${i.desc}</div>
+        <div class="score-bar">
+          <div class="score-fill" style="width: ${i.confidence * 100}%; background: linear-gradient(90deg, #249E94, #3BC1A8);"></div>
+        </div>
+        <div class="hallmarks">
+          ${i.targets.map(t => `<span class="hallmark-tag">${t}</span>`).join('')}
+        </div>
+      </div>
+    `).join('');
+
+    // Click handlers - open detail modal
+    pathwayContent.querySelectorAll('.control-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const i = CONTROL_INTERVENTIONS.find(x => x.id === item.dataset.intervention);
+        showInterventionDetail(i);
+      });
+    });
+  }
+
+  function showInterventionDetail(intervention) {
+    const i = intervention;
+    pathwayDetailInner.innerHTML = `
+      <h2>${i.name} <span class="evidence-badge ${i.level}">${i.level}</span></h2>
+      <div class="subtitle">${i.desc}</div>
+
+      <div class="chat-actions" style="margin: 20px 0;">
+        <button class="chat-btn" onclick="sendToChat('analyze control laws for age 50 with ${i.id}')">Analyze at Age 50</button>
+        <button class="chat-btn" onclick="sendToChat('analyze control laws for age 30 with ${i.id}')">Analyze at Age 30</button>
+        <button class="chat-btn" onclick="sendToChat('analyze control laws for age 70 with ${i.id}')">Analyze at Age 70</button>
+      </div>
+
+      <div class="chat-actions" style="margin: 20px 0;">
+        <button class="chat-btn" onclick="sendToChat('search pubmed ${i.name} longevity clinical trial')">PubMed Evidence</button>
+        <button class="chat-btn" onclick="sendToChat('tell me about ${i.name} mechanism of action for longevity')">Mechanism</button>
+        <button class="chat-btn llm-btn" onclick="analyzeMechanismLLM('Explain ${i.name} mechanism of action in aging and longevity')">Mechanism (L-LLM)</button>
+        <button class="chat-btn" onclick="sendToChat('what are the risks and side effects of ${i.name}?')">Risks & Side Effects</button>
+      </div>
+
+      <div class="chat-actions" style="margin: 20px 0;">
+        <button class="chat-btn" onclick="sendToChat('compare ${i.id} with rapamycin and metformin')">Compare Interventions</button>
+        <button class="chat-btn" onclick="sendToChat('which pathways does ${i.name} target?')">Target Pathways</button>
+      </div>
+
+      <div class="detail-grid">
+        <div class="detail-stat">
+          <div class="value">${(i.confidence * 100).toFixed(0)}%</div>
+          <div class="label">Confidence</div>
+        </div>
+        <div class="detail-stat">
+          <div class="value">${i.level}</div>
+          <div class="label">Evidence Level</div>
+        </div>
+        <div class="detail-stat">
+          <div class="value">${i.targets.length}</div>
+          <div class="label">Hallmarks Targeted</div>
+        </div>
+      </div>
+
+      <div class="detail-section" style="margin-top: 16px;">
+        <h3>Targeted Aging Hallmarks</h3>
+        <div class="hallmarks" style="margin-top: 8px;">
+          ${i.targets.map(t => `<span class="hallmark-tag">${t}</span>`).join('')}
+        </div>
+      </div>
+    `;
+
+    pathwayDetail.classList.add('show');
+  }
+
+  async function loadSynergies() {
+    if (selectedPathways.size < 2) {
+      pathwayContent.innerHTML = `
+        <div class="pathway-loading">
+          Shift+click 2+ pathways to analyze synergies
+        </div>
+      `;
+      return;
+    }
+
+    pathwayContent.innerHTML = '<div class="pathway-loading">Finding synergies...</div>';
+
+    try {
+      const resp = await fetch('/api/pathways/synergies', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({pathway_ids: Array.from(selectedPathways)}),
+      });
+      const data = await resp.json();
+
+      if (data.synergies.length === 0) {
+        pathwayContent.innerHTML = '<div class="pathway-loading">No synergies found</div>';
+        return;
+      }
+
+      pathwayContent.innerHTML = data.synergies.map(s => `
+        <div class="pathway-item synergy-item" data-pathways="${s.pathways.join(',')}">
+          <div class="name">${s.pathways.map(p => p.replace(/_/g, ' ')).join(' + ')}</div>
+          <div class="stats">
+            <span>Shared: ${s.shared_genes.length} genes</span>
+            <span>Combined: ${(s.combined_coverage * 100).toFixed(1)}%</span>
+          </div>
+          <div class="score-bar">
+            <div class="score-fill" style="width: ${s.synergy_score * 100}%"></div>
+          </div>
+          <div class="hallmarks">
+            ${s.shared_genes.slice(0, 8).map(g => `<span class="hallmark-tag">${g}</span>`).join('')}
+          </div>
+          <button class="chat-btn synergy-chat-btn" onclick="event.stopPropagation(); sendToChat('find pathway synergies between ${s.pathways.join(' and ')}')">Analyze in Chat</button>
+        </div>
+      `).join('');
+    } catch (e) {
+      pathwayContent.innerHTML = '<div class="pathway-loading">Failed to load synergies</div>';
+    }
+  }
+
+  loadPathways();
+
+  // ── L-LLM Direct API Calls ───────────────────────────────────────
+  const llmModal = document.getElementById('llmModal');
+  const llmModalInner = document.getElementById('llmModalInner');
+  const closeLlmModal = document.getElementById('closeLlmModal');
+
+  closeLlmModal.addEventListener('click', () => {
+    llmModal.classList.remove('show');
+  });
+  llmModal.addEventListener('click', (e) => {
+    if (e.target === llmModal) llmModal.classList.remove('show');
+  });
+
+  function showLlmLoading(title) {
+    llmModalInner.innerHTML = `
+      <h2>${title} <span class="llm-badge">L-LLM</span></h2>
+      <div class="llm-loading">
+        <div class="llm-spinner"></div>
+        <div>Querying Longevity LLM...</div>
+      </div>
+    `;
+    llmModal.classList.add('show');
+  }
+
+  function showLlmError(message) {
+    llmModalInner.innerHTML = `
+      <h2>L-LLM Error <span class="llm-badge">L-LLM</span></h2>
+      <div class="llm-error">${message}</div>
+    `;
+  }
+
+  // Score Pathway with L-LLM (direct API call)
+  window.scorePathwayLLM = async function(pathwayName, geneList) {
+    showLlmLoading('Pathway Scoring');
+    try {
+      const resp = await fetch('/api/llm/pathway-score', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        credentials: 'include',
+        body: JSON.stringify({
+          pathway_name: pathwayName,
+          genes: geneList || [],
+          context: `Analyzing ${pathwayName} pathway for aging relevance`
+        })
+      });
+      const data = await resp.json();
+      if (data.error) {
+        showLlmError(data.error);
+        return;
+      }
+      const r = data.result;
+      llmModalInner.innerHTML = `
+        <h2>${pathwayName.replace(/_/g, ' ')} <span class="llm-badge">L-LLM</span></h2>
+        <div class="llm-result">
+          <div class="llm-score">${r.aging_score !== undefined ? (r.aging_score > 1 ? r.aging_score.toFixed(1) : (r.aging_score * 100).toFixed(0) + '%') : 'N/A'}</div>
+          <div class="llm-confidence">Aging Relevance (0-10 scale)</div>
+          <div class="llm-section" style="margin-top: 24px;">
+            <h3>Analysis</h3>
+            <div class="llm-content">${r.reasoning || r.explanation || r.analysis || JSON.stringify(r, null, 2)}</div>
+          </div>
+          ${r.key_genes ? `
+            <div class="llm-section">
+              <h3>Key Genes</h3>
+              <div class="gene-list">${(Array.isArray(r.key_genes) ? r.key_genes : String(r.key_genes).split(/,\s*/)).map(g => `<span class="gene-tag">${g.trim()}</span>`).join('')}</div>
+            </div>
+          ` : ''}
+          <button class="send-to-chat-btn" onclick="sendLlmToChat()">
+            Send to Chat
+          </button>
+        </div>
+      `;
+      window._currentLlmResult = {type: 'pathway', subject: pathwayName, content: r.reasoning || r.explanation || r.analysis || ''};
+    } catch (e) {
+      showLlmError('Failed to query L-LLM: ' + e.message);
+    }
+  };
+
+  // Predict Lifespan with L-LLM (direct API call)
+  window.predictLifespanLLM = async function(compound, species) {
+    showLlmLoading('Lifespan Prediction');
+    try {
+      const resp = await fetch('/api/llm/lifespan-predict', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        credentials: 'include',
+        body: JSON.stringify({
+          compound: compound,
+          species: species || 'mice'
+        })
+      });
+      const data = await resp.json();
+      if (data.error) {
+        showLlmError(data.error);
+        return;
+      }
+      const r = data.result;
+      llmModalInner.innerHTML = `
+        <h2>${compound} Lifespan Prediction <span class="llm-badge">L-LLM</span></h2>
+        <div class="llm-result">
+          ${r.predicted_effect !== undefined && r.predicted_effect !== null && !isNaN(r.predicted_effect) ? `
+            <div class="llm-score" style="color: ${r.predicted_effect > 0 ? 'var(--anti-aging)' : 'var(--pro-aging)'}">
+              ${r.predicted_effect > 0 ? '+' : ''}${r.predicted_effect}%
+            </div>
+            <div class="llm-confidence">Predicted Lifespan Change in ${species || 'mice'}</div>
+          ` : `
+            <div class="llm-score" style="color: var(--text-muted);">
+              Unknown
+            </div>
+            <div class="llm-confidence">Lifespan prediction not available (model trained on genes, not compounds)</div>
+          `}
+          ${r.confidence !== undefined ? `
+            <div class="detail-grid" style="margin-top: 20px;">
+              <div class="detail-stat">
+                <div class="value">${typeof r.confidence === 'number' ? Math.round(r.confidence * 100) + '%' : r.confidence}</div>
+                <div class="label">Confidence</div>
+              </div>
+            </div>
+          ` : ''}
+          <div class="llm-section" style="margin-top: 24px;">
+            <h3>Reasoning</h3>
+            <div class="llm-content">${r.reasoning || r.explanation || r.mechanism || JSON.stringify(r, null, 2)}</div>
+          </div>
+          ${r.pathways ? `
+            <div class="llm-section">
+              <h3>Target Pathways</h3>
+              <div class="gene-list">${(Array.isArray(r.pathways) ? r.pathways : r.pathways.split(/,\s*/)).map(p => `<span class="hallmark-tag">${p.trim()}</span>`).join('')}</div>
+            </div>
+          ` : ''}
+          <button class="send-to-chat-btn" onclick="sendLlmToChat()">
+            Send to Chat
+          </button>
+        </div>
+      `;
+      window._currentLlmResult = {type: 'lifespan', subject: compound, content: r.reasoning || r.explanation || ''};
+    } catch (e) {
+      showLlmError('Failed to query L-LLM: ' + e.message);
+    }
+  };
+
+  // Store current L-LLM result for send-to-chat
+  window._currentLlmResult = null;
+
+  // Send L-LLM result to chat for further discussion
+  window.sendLlmToChat = function() {
+    if (!window._currentLlmResult) return;
+    const {type, subject, content} = window._currentLlmResult;
+    const preview = (content || '').substring(0, 200).replace(/\n/g, ' ');
+    let message;
+    if (type === 'lifespan') {
+      message = `Based on L-LLM's lifespan prediction for ${subject}: "${preview}..." - what pathway analysis tools can help investigate this compound's anti-aging mechanisms?`;
+    } else if (type === 'mechanism') {
+      message = `L-LLM analyzed "${subject}": "${preview}..." - can you suggest next steps for investigating this mechanism using our aging clock database?`;
+    } else if (type === 'pathway') {
+      message = `L-LLM scored the pathway "${subject}" for aging relevance. Key insight: "${preview}..." - what interventions target this pathway?`;
+    } else {
+      message = `Regarding L-LLM's analysis of ${subject}: "${preview}..." - what do you think?`;
+    }
+    socket.emit('input', message + '\r');
+    // Close both modals
+    llmModal.classList.remove('show');
+    pathwayDetail.classList.remove('show');
+  };
+
+  // Analyze Mechanism with L-LLM (direct API call)
+  window.analyzeMechanismLLM = async function(query) {
+    showLlmLoading('Mechanism Analysis');
+    try {
+      const resp = await fetch('/api/llm/mechanism', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        credentials: 'include',
+        body: JSON.stringify({ query: query })
+      });
+      const data = await resp.json();
+      if (data.error) {
+        showLlmError(data.error);
+        return;
+      }
+      const r = data.result;
+      const analysisContent = r.response || r.content || r.text || '';
+      llmModalInner.innerHTML = `
+        <h2>Mechanism Analysis <span class="llm-badge">L-LLM</span></h2>
+        <div class="llm-result">
+          <div class="llm-section">
+            <h3>Query</h3>
+            <div class="llm-content" style="font-style: italic; color: var(--mid);">${query}</div>
+          </div>
+          <div class="llm-section">
+            <h3>Analysis</h3>
+            <div class="llm-content">${analysisContent || JSON.stringify(r, null, 2)}</div>
+          </div>
+          <button class="send-to-chat-btn" onclick="sendLlmToChat()">
+            Send to Chat
+          </button>
+        </div>
+      `;
+      window._currentLlmResult = {type: 'mechanism', subject: query, content: analysisContent};
+    } catch (e) {
+      showLlmError('Failed to query L-LLM: ' + e.message);
+    }
+  };
+
+  // ── File upload ─────────────────────────────────────────────────
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+  const fileList = document.getElementById('fileList');
+  const toast = document.getElementById('toast');
+
+  function showToast(msg, duration = 3000) {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), duration);
+  }
+
+  function formatSize(bytes) {
+    if (bytes > 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+    if (bytes > 1024) return Math.round(bytes / 1024) + ' KB';
+    return bytes + ' B';
+  }
+
+  async function uploadFile(file) {
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      const resp = await fetch('/api/upload', { method: 'POST', body: form });
+      const data = await resp.json();
+      if (data.ok) {
+        showToast(`Uploaded ${data.name} (${formatSize(data.size)})`);
+        refreshFileList();
+      } else {
+        showToast(`Upload failed: ${data.error}`);
+      }
+    } catch (e) {
+      showToast(`Upload failed: ${e.message}`);
+    }
+  }
+
+  async function deleteFile(name) {
+    try {
+      await fetch(`/api/upload/${encodeURIComponent(name)}`, { method: 'DELETE' });
+      refreshFileList();
+    } catch (e) {
+      showToast(`Delete failed: ${e.message}`);
+    }
+  }
+
+  async function refreshFileList() {
+    try {
+      const resp = await fetch('/api/uploads');
+      const data = await resp.json();
+      fileList.innerHTML = '';
+      for (const f of data.files) {
+        const item = document.createElement('div');
+        item.className = 'file-item';
+        const pathRef = `data/uploads/${f.name}`;
+        item.innerHTML = `
+          <span class="file-icon">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M4 0a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V4.707A1 1 0 0013.707 4L10 .293A1 1 0 009.293 0H4zm5 1.5v2A1.5 1.5 0 0010.5 5H13v9a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1h5z"/>
+            </svg>
+          </span>
+          <div class="file-info">
+            <div class="file-name">${f.name}</div>
+            <div class="file-size">${formatSize(f.size)}</div>
+            <div class="file-path" title="Click to copy path">@${pathRef}</div>
+          </div>
+          <span class="file-delete" title="Delete">&times;</span>
+        `;
+        item.querySelector('.file-path').addEventListener('click', () => {
+          navigator.clipboard.writeText(`@${pathRef}`).then(() => {
+            showToast(`Copied: @${pathRef}`);
+          });
+        });
+        item.querySelector('.file-delete').addEventListener('click', () => deleteFile(f.name));
+        fileList.appendChild(item);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  dropZone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => {
+    for (const f of fileInput.files) uploadFile(f);
+    fileInput.value = '';
+  });
+
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+  dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('dragover');
+  });
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    for (const f of e.dataTransfer.files) uploadFile(f);
+  });
+
+  document.addEventListener('dragover', (e) => e.preventDefault());
+  document.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (e.target !== dropZone && !dropZone.contains(e.target)) {
+      for (const f of e.dataTransfer.files) uploadFile(f);
+    }
+  });
+
+  refreshFileList();
+  term.focus();
+})();
+</script>
+</body>
+</html>

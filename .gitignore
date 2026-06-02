@@ -1,0 +1,73 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment variables
+.env
+.env.local
+
+# Data outputs
+data/uploads/
+data/*_multirun*.json
+data/*_multirun*.csv
+data/5run_*.json
+data/5run_*.csv
+data/*_LOCAL_VLLM*.json
+data/*_LOCAL_VLLM*.csv
+data/*_comparison.json
+data/full_pipeline_results.json
+
+# Cache
+.cache/
+*.sqlite-journal
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Logs
+*.log
+logs/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Testing
+.coverage
+htmlcov/
+.tox/
+
+# Claude Code
+.claude/

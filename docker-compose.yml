@@ -1,0 +1,14 @@
+services:
+  web:
+    build: .
+    network_mode: host
+    env_file:
+      - .env
+    environment:
+      - AGINGCLAW_PASSWORD=${AGINGCLAW_PASSWORD:-}
+    volumes:
+      - uploads:/app/data/uploads
+    restart: unless-stopped
+
+volumes:
+  uploads:

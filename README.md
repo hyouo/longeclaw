@@ -2,6 +2,8 @@
 
 An AI agent that predicts your biological age across 233 clocks, explains why you're aging faster or slower, and helps you investigate the mechanisms.
 
+![LongevityClaw Demo](demo.gif)
+
 Today's aging clocks exist in silos. A person might get an epigenetic age from a methylation array, a blood-test-based age from routine labs, and a proteomic age from a plasma panel, but nobody connects the dots. LongevityClaw accepts any data the user has, runs every applicable clock, synthesizes results across modalities, explains the mechanisms driving age acceleration or deceleration, and recommends personalized interventions grounded in evidence.
 
 ## Quick Start

@@ -57,7 +57,7 @@ Three population-scale datasets for individual interpretation (z-scores, percent
 
 **PubMed search.** Search biomedical literature directly from the conversation via NCBI E-utilities.
 
-## Scientific Analysis Modules (Hackathon 2026)
+## Scientific Analysis Modules
 
 Three new research modules for longevity biology analysis:
 

@@ -1,0 +1,4 @@
+# Optional dependencies for native GSEA only. Core CLI/MCP/Fisher/clock tools use stdlib.
+# The optional upstream bridge uses the original repository's uv sync / uv.lock.
+pandas>=2.0,<3
+gseapy>=1.1,<2

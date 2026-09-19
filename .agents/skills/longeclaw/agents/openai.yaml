@@ -1,0 +1,4 @@
+interface:
+  display_name: "LongevityClaw"
+  short_description: "本地多组学批量评分、覆盖率检查与通路分析"
+  default_prompt: "使用 $longeclaw 检查本地数据与依赖，按实际数据格式执行批量分析，导出结果并报告覆盖率和分析限制。"

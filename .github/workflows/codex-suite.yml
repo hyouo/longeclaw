@@ -1,0 +1,49 @@
+name: Codex suite
+
+on:
+  push:
+    branches: [main, codex-toolkit]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    name: Core / Python ${{ matrix.python }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install test runner only
+        run: python -m pip install 'pytest>=8,<10'
+      - name: Verify standard-library-only entry points
+        run: |
+          python -S scripts/longeclaw_codex.py tools
+          python -S scripts/longeclaw_codex.py doctor
+      - name: Test adapter and actual upstream CSV catalog
+        run: python -m pytest -q tests/codex_suite -ra
+      - name: Compile adapter
+        run: python -m compileall -q longevityclaw/codex_suite scripts/longeclaw_codex.py
+
+  gsea:
+    name: Optional GSEA / Python 3.11
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install optional analysis dependencies
+        run: python -m pip install 'pytest>=8,<10' -r codex-requirements-analysis.txt
+      - name: Exercise real GSEA on synthetic ranked data
+        run: python -m pytest -q tests/codex_suite/test_core.py::test_optional_real_gsea -ra

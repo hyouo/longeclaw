@@ -1,0 +1,95 @@
+name: Public repository audit snapshot
+
+on:
+  push:
+    branches: [maintenance/public-audit-20260930]
+    paths: [.github/workflows/public-audit-snapshot.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Collect allowlisted public source snapshots without running project code
+        shell: python
+        run: |
+          import concurrent.futures
+          import hashlib
+          import json
+          import pathlib
+          import subprocess
+          import tempfile
+          import urllib.request
+          import zipfile
+
+          REPOS = ['lib-pku.github.io', 'paper-crawler', 'SillyTavern',
+                   'personal-feat-academic-portfolio-platform', 'scNotebooks', 'e',
+                   'howtobeagreatscientist', 'predict',
+                   'computational-biology-learning-index', 'longeclaw']
+          ROOT = pathlib.Path(tempfile.mkdtemp(prefix='public-audit-'))
+
+          def collect(name):
+              repo = 'hyouo/' + name
+              req = urllib.request.Request('https://api.github.com/repos/' + repo,
+                                           headers={'Accept': 'application/vnd.github+json',
+                                                    'User-Agent': 'public-repository-repair-audit'})
+              with urllib.request.urlopen(req, timeout=30) as response:
+                  meta = json.load(response)
+              if meta['private'] or meta['full_name'] != repo:
+                  raise RuntimeError('Refusing non-public or redirected repository: ' + repo)
+              target = ROOT / name
+              subprocess.run(['git', 'clone', '--depth', '1', '--single-branch',
+                              '--branch', meta['default_branch'],
+                              'https://github.com/' + repo + '.git', str(target)],
+                             check=False, timeout=240, capture_output=True)
+              def git(*args):
+                  return subprocess.check_output(['git', '-C', str(target), *args], timeout=60)
+              result = {'name': name, 'full_name': repo, 'default_branch': meta['default_branch'],
+                        'visibility': meta['visibility'], 'fork': meta['fork'],
+                        'description': meta['description'], 'files': []}
+              if not target.exists():
+                  result['state'] = 'empty-or-clone-failed'
+                  return result
+              try:
+                  result['head_sha'] = git('rev-parse', 'HEAD').decode().strip()
+                  result['tree_sha'] = git('rev-parse', 'HEAD^{tree}').decode().strip()
+              except subprocess.CalledProcessError:
+                  result['state'] = 'empty'
+                  return result
+              result['state'] = 'collected'
+              for record in git('ls-tree', '-r', '-z', '-l', 'HEAD').split(b'\0'):
+                  if not record:
+                      continue
+                  info, raw_path = record.split(b'\t', 1)
+                  mode, kind, sha, size = info.decode().split()
+                  path = raw_path.decode('utf-8')
+                  entry = {'path': path, 'mode': mode, 'type': kind, 'sha': sha,
+                           'size': None if size == '-' else int(size)}
+                  p = target / path
+                  entry['included'] = kind == 'blob' and mode != '120000' and p.is_file() and entry['size'] <= 40 * 1024**2
+                  if entry['included']:
+                      entry['sha256'] = hashlib.sha256(p.read_bytes()).hexdigest()
+                  result['files'].append(entry)
+              return result
+
+          with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
+              manifests = list(pool.map(collect, REPOS))
+          with zipfile.ZipFile('public-sources.zip', 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
+              for item in manifests:
+                  for entry in item['files']:
+                      if entry['included']:
+                          archive.write(ROOT / item['name'] / entry['path'], item['name'] + '/' + entry['path'])
+              archive.writestr('manifest.json', json.dumps(manifests, ensure_ascii=False, indent=2))
+          print(json.dumps([{'name': x['name'], 'state': x['state'], 'sha': x.get('head_sha'),
+                             'files': len(x['files']), 'included': sum(f['included'] for f in x['files'])}
+                            for x in manifests], indent=2))
+      - name: Retain source snapshots and hash inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-sources-20260930
+          path: public-sources.zip
+          if-no-files-found: error
+          retention-days: 7

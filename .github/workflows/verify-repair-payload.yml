@@ -1,0 +1,61 @@
+name: Verify public repair payload
+on:
+  push:
+    branches: [maintenance/public-audit-20260930]
+    paths: [.github/workflows/verify-repair-payload.yml]
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ee210d1647d05c209fbeb8341ceae7fbc9d0c6dc
+      - name: Normalize documented transcription insertions and enforce exact source digest
+        shell: python
+        run: |
+          import base64, hashlib, json, pathlib, zlib
+          root = pathlib.Path('.github/maintenance')
+          paths = [root / ('public-repairs.b64.' + str(i)) for i in (1, 2)]
+          parts = [p.read_text() for p in paths]
+          pathlib.Path('payload-original.b64').write_text(''.join(parts))
+          corrections = [('nuzZZ962ufN', 'nuzZ962ufN'),
+                         ('GtscKHv9', 'GtsKHv9'), ('gioKuKuDU', 'gioKuDU')]
+          for before, after in corrections:
+              found = sum(p.count(before) for p in parts)
+              if found != 1:
+                  raise RuntimeError('Unexpected transport correction count: ' + before + ' ' + str(found))
+              parts = [p.replace(before, after) for p in parts]
+          encoded = ''.join(parts)
+          pathlib.Path('payload-normalized.b64').write_text(encoded)
+          raw = base64.b64decode(encoded, validate=True)
+          actual = hashlib.sha256(raw).hexdigest()
+          expected = 'c137e89ca7df9e36335b3e9eefb1ad9b7a0728defb399b2048832ad092cbf2c1'
+          print('Normalized lengths:', [len(x) for x in parts])
+          print('Compressed SHA256:', actual)
+          if actual != expected:
+              raise RuntimeError('Repair transport integrity failure; no repository code will be applied')
+          document = zlib.decompress(raw)
+          json.loads(document)
+          pathlib.Path('verified-repairs.json').write_bytes(document)
+          for path, part in zip(paths, parts):
+              path.write_text(part)
+      - name: Store only digest-verified transport corrections on the audit branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/maintenance/public-repairs.b64.1 .github/maintenance/public-repairs.b64.2
+          git diff --cached --check
+          git commit -m 'chore: correct transport transcription and verify original repair digest'
+          git push origin HEAD:refs/heads/maintenance/public-audit-20260930
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: repair-payload-verification
+          path: |
+            payload-*.b64
+            verified-repairs.json
+          retention-days: 7
+          if-no-files-found: error

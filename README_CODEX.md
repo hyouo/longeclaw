@@ -6,10 +6,10 @@ Python 3.11+ only; no Anthropic key or Claude agent is needed.
 
 ## Get started
 
-Until the integration PR is merged, use the `codex-toolkit` branch:
+The toolkit is included in `main` (integration PR #1 is merged):
 
 ```bash
-git clone --branch codex-toolkit https://github.com/hyouo/longeclaw.git
+git clone --branch main https://github.com/hyouo/longeclaw.git
 cd longeclaw
 python3 scripts/longeclaw_codex.py doctor
 python3 scripts/longeclaw_codex.py tools

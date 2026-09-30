@@ -1,0 +1,86 @@
+name: Verify and prepare public repair
+on:
+  workflow_call:
+    inputs:
+      base_sha:
+        required: true
+        type: string
+      python_version:
+        required: false
+        type: string
+        default: '3.11'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+      EVENTLET_NO_GREENDNS: 'yes'
+      PUPPETEER_SKIP_DOWNLOAD: 'true'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ inputs.base_sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply reviewed bytes and verify the entire resulting Git tree
+        shell: python
+        run: |
+          import hashlib, os, pathlib, subprocess, sys, urllib.request
+          url = 'https://raw.githubusercontent.com/hyouo/longeclaw/0eeb48b02e71a4ebcad2e3500f154b568481bf32/.github/maintenance/apply-public-repairs.py'
+          with urllib.request.urlopen(url, timeout=30) as response:
+              code = response.read()
+          if hashlib.sha256(code).hexdigest() != 'd6f29d9e87487c6859bb2368ad24692466b9eb9057eebb874ba13b84f706f5e4':
+              raise RuntimeError('Repair helper digest mismatch')
+          path = pathlib.Path(os.environ['RUNNER_TEMP']) / 'apply-public-repairs.py'
+          path.write_bytes(code)
+          subprocess.run([sys.executable, str(path)], check=True)
+      - name: Execute project regression and integration checks with read-only permissions
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash "$RUNNER_TEMP/public-repair-tests.sh" 2>&1 | tee "$RUNNER_TEMP/verification.log"
+      - name: Preserve exact test commands and execution log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-repair-verification
+          path: |
+            ${{ runner.temp }}/verification.log
+            ${{ runner.temp }}/public-repair-tests.sh
+            ${{ runner.temp }}/public-repair-record.json
+          if-no-files-found: warn
+          retention-days: 14
+  prepare-review-branch:
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ inputs.base_sha }}
+      - name: Recreate only the passing exact tree and push a new review branch
+        shell: python
+        run: |
+          import hashlib, os, pathlib, subprocess, sys, urllib.request
+          url = 'https://raw.githubusercontent.com/hyouo/longeclaw/0eeb48b02e71a4ebcad2e3500f154b568481bf32/.github/maintenance/apply-public-repairs.py'
+          with urllib.request.urlopen(url, timeout=30) as response:
+              code = response.read()
+          if hashlib.sha256(code).hexdigest() != 'd6f29d9e87487c6859bb2368ad24692466b9eb9057eebb874ba13b84f706f5e4':
+              raise RuntimeError('Repair helper digest mismatch')
+          path = pathlib.Path(os.environ['RUNNER_TEMP']) / 'apply-public-repairs.py'
+          path.write_bytes(code)
+          subprocess.run([sys.executable, str(path), '--publish'], check=True)

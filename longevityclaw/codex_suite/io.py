@@ -13,6 +13,11 @@ class SuiteError(ValueError):
 def read_json(text: str) -> Any:
     def reject(value):
         raise SuiteError(f"Non-finite JSON number: {value}")
+    def finite_float(value):
+        result = float(value)
+        if not math.isfinite(result):
+            reject(value)
+        return result
     def unique(pairs):
         result = {}
         for key, value in pairs:
@@ -20,7 +25,7 @@ def read_json(text: str) -> Any:
                 raise SuiteError(f"Duplicate JSON key: {key}")
             result[key] = value
         return result
-    return json.loads(text, parse_constant=reject, object_pairs_hook=unique)
+    return json.loads(text, parse_constant=reject, parse_float=finite_float, object_pairs_hook=unique)
 
 def json_text(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
@@ -46,20 +51,25 @@ def scoped_path(root: Path, value: str, *, exists: bool = True) -> Path:
 def table(path: Path) -> tuple[list[str], list[list[str]]]:
     delimiter = "\t" if path.suffix.lower() in (".tsv", ".txt", ".rnk") else ","
     with path.open(encoding="utf-8-sig", newline="") as stream:
-        reader = csv.reader(stream, delimiter=delimiter)
+        reader = csv.reader(stream, delimiter=delimiter, strict=True)
         try:
             header = [cell.strip() for cell in next(reader)]
         except StopIteration:
             raise SuiteError("Empty input table.") from None
+        except csv.Error as exc:
+            raise SuiteError(f"Malformed table header: {exc}") from exc
         if not header or any(not cell for cell in header) or len(set(header)) != len(header):
             raise SuiteError("Table headers must be non-empty and unique.")
         rows = []
-        for index, row in enumerate(reader, 2):
-            if not row or all(not cell.strip() for cell in row):
-                continue
-            if len(row) != len(header):
-                raise SuiteError(f"Row {index}: expected {len(header)} columns, found {len(row)}.")
-            rows.append([cell.strip() for cell in row])
+        try:
+            for index, row in enumerate(reader, 2):
+                if not row or all(not cell.strip() for cell in row):
+                    continue
+                if len(row) != len(header):
+                    raise SuiteError(f"Row {index}: expected {len(header)} columns, found {len(row)}.")
+                rows.append([cell.strip() for cell in row])
+        except csv.Error as exc:
+            raise SuiteError(f"Malformed table near line {reader.line_num}: {exc}") from exc
     if not rows:
         raise SuiteError("Table contains no data rows.")
     return header, rows

@@ -3,7 +3,7 @@
 版本：0.1.0。审阅的上游基线：`dd6861cb280d5ffba0c81766a405a702d0b3acef`。
 本适配层以新增文件的方式安装，不替换原有 `agent.py`、`tools.py`、模型算法、依赖锁文件或数据库。
 
-当前目标仓库：`hyouo/longeclaw`；适配分支：`codex-toolkit`。
+当前目标仓库：`hyouo/longeclaw`；使用主分支 `main`，适配层已由 PR #1 合并。
 初次使用参见 [README_CODEX.md](../README_CODEX.md)。
 
 ## 1. 先检查本地环境

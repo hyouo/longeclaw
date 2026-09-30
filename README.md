@@ -6,6 +6,14 @@ An AI agent that predicts your biological age across 233 clocks, explains why yo
 
 Today's aging clocks exist in silos. A person might get an epigenetic age from a methylation array, a blood-test-based age from routine labs, and a proteomic age from a plasma panel, but nobody connects the dots. LongevityClaw accepts any data the user has, runs every applicable clock, synthesizes results across modalities, explains the mechanisms driving age acceleration or deceleration, and recommends personalized interventions grounded in evidence.
 
+## Offline analysis toolkit in this fork
+
+For the local JSON CLI, repository Skill and MCP adapter, start with
+[LongevityClaw for Codex](README_CODEX.md) or the [Chinese guide](docs/CODEX.md).
+The standard-library core needs Python 3.11+ and no Anthropic API key.
+Its bulk outputs are uncalibrated coefficient scores, not validated biological ages.
+The original agent application and its setup are described below.
+
 ## Quick Start
 
 ```bash
